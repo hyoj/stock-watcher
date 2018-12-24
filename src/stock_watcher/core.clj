@@ -21,8 +21,8 @@
     (string/trim
       (:body (client/get (str base-en-url stock-code))))))
 
-(get-stock-price "000830")                                  ;
-(get-stock-price "036460")                                  ; 한국가스공사
+;(get-stock-price "000830")                                  ;
+;(get-stock-price "036460")                                  ; 한국가스공사
 
 ;; get current stock price
 (defn get-current-stock-price [stock-code]
@@ -33,7 +33,10 @@
       :attrs
       :CurJuka))
 
-(get-current-stock-price "036460")
+;(get-current-stock-price "036460")
+
+(defn check-stock-code [stock-code]
+  (not (nil? (re-seq #"^\d{6}$" stock-code))))
 
 (h/defhandler bot-api
               (h/command "start" {{username :username} :from {id :id :as chat} :chat}
@@ -47,12 +50,10 @@
                          (api/send-text token id {:parse_mode "Markdown"}
                                         "*Hello*, fellows :)"))
 
-              ;(h/command "" {{id :id :as chat} :chat}
-              ;           (println "hello was requested in " chat)
-              ;           (api/send-text token id {:parse_mode "Markdown"}
-              ;                          "*Hello*, fellows :)"))
-
-              (h/message message (println "Intercepted message:" message)))
+              (h/message {{id :id :as chat} :chat text :text :as message}
+                         (println "Intercepted message:" message)
+                         (when (check-stock-code text)
+                           (api/send-text token id (get-current-stock-price text)))))
 
 (def channel (p/start token bot-api))
 
