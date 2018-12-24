@@ -59,3 +59,13 @@
 
 ;stop created background processes
 ;(p/stop channel)
+
+(defn restart-bot []
+  (when channel
+    (println "Stopping bot..." channel)
+    (p/stop channel))
+  (println "Starting bot...")
+  (alter-var-root #'channel (constantly (p/start token bot-api)))
+  (println "Current channel: " channel))
+
+;(restart-bot)
