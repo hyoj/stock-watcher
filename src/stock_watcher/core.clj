@@ -1,4 +1,5 @@
 (ns stock-watcher.core
+  (:gen-class)
   (:require [clj-http.client :as client]
             [clojure.xml :as xml]
             [clojure.zip :as zip]
@@ -55,17 +56,24 @@
                          (when (check-stock-code text)
                            (api/send-text token id (get-current-stock-price text)))))
 
-(def channel (p/start token bot-api))
+(declare channel)
 
-;stop created background processes
-;(p/stop channel)
+(defn start-bot []
+  (println "Starting bot...")
+  (alter-var-root #'channel (constantly (p/start token bot-api))))
 
-(defn restart-bot []
+(defn stop-bot []
   (when channel
     (println "Stopping bot..." channel)
-    (p/stop channel))
-  (println "Starting bot...")
-  (alter-var-root #'channel (constantly (p/start token bot-api)))
+    (alter-var-root #'channel (constantly (p/stop channel)))))
+
+(defn restart-bot []
+  (stop-bot)
+  (start-bot)
   (println "Current channel: " channel))
 
 ;(restart-bot)
+
+(defn -main []
+  (start-bot)
+  (while true (Thread/sleep 10000)))
