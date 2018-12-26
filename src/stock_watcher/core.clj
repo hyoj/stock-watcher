@@ -1,9 +1,6 @@
 (ns stock-watcher.core
   (:gen-class)
-  (:require [clj-http.client :as client]
-            [clojure.xml :as xml]
-            [clojure.zip :as zip]
-            [clojure.string :as string]
+  (:require [stock-watcher.quotes :refer [get-stock-info]]
             [morse.handlers :as h]
             [morse.api :as api]
             [morse.polling :as p]
@@ -13,28 +10,7 @@
             [clojurewerkz.quartzite.jobs :refer [defjob]]
             [clojurewerkz.quartzite.schedule.daily-interval :refer [schedule monday-through-friday starting-daily-at time-of-day ending-daily-at with-interval-in-minutes with-interval-in-seconds]]))
 
-(defn zip-str [s]
-  (zip/xml-zip
-    (xml/parse (java.io.ByteArrayInputStream. (.getBytes s)))))
-
 (def token (System/getenv "TELEGRAM_TOKEN"))
-(def base-url "http://asp1.krx.co.kr/servlet/krx.asp.XMLSise?code=")
-(def base-en-url "http://asp1.krx.co.kr/servlet/krx.asp.XMLSiseEng?code=")
-
-;; get stock price
-(defn get-stock-price [stock-code]
-  (zip-str
-    (string/trim
-      (:body (client/get (str base-en-url stock-code))))))
-
-;; get current stock price
-(defn get-current-stock-price [stock-code]
-  (-> (get-stock-price stock-code)
-      first
-      :content
-      (get 2)
-      :attrs
-      :CurJuka))
 
 ;; check stock code is valid
 (defn check-stock-code [stock-code]
@@ -69,7 +45,7 @@
               (h/message {{id :id :as chat} :chat text :text :as message}
                          (println "Intercepted message:" message)
                          (when (check-stock-code text)
-                           (api/send-text token id (get-current-stock-price text)))))
+                           (api/send-text token id (:tradePrice (get-stock-info text))))))
 
 
 (declare channel)
@@ -96,14 +72,14 @@
           (doseq [chat-id chat-ids]
             (api/send-text token chat-id {:parse_mode "html"}
                            (str "주식종목코드 <b>" stock-code "</b>\n"
-                                "현재가: <i>"(get-current-stock-price stock-code) "</i>" )))
+                                "현재가: <i>" (:tradePrice (get-stock-info stock-code)) "</i>")))
           (prn stock-code chat-ids))
         (println "`send-current-stock-price-to-bot` working..")
         )
 
 (defn -main [& m]
   (start-bot)
-  (let [s   (-> (qs/initialize) qs/start)
+  (let [s (-> (qs/initialize) qs/start)
         job (j/build
               (j/of-type send-current-stock-price-to-bot)
               (j/with-identity (j/key "jobs.noop.1")))
@@ -115,6 +91,5 @@
                                      (monday-through-friday)
                                      (starting-daily-at (time-of-day 9 00 00))
                                      (ending-daily-at (time-of-day 16 00 00)))))]
-    (qs/schedule s job trigger))
-  )
+    (qs/schedule s job trigger)))
 
