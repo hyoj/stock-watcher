@@ -4,11 +4,8 @@
             [morse.handlers :as h]
             [morse.api :as api]
             [morse.polling :as p]
-            [clojurewerkz.quartzite.scheduler :as qs]
-            [clojurewerkz.quartzite.triggers :as t]
-            [clojurewerkz.quartzite.jobs :as j]
-            [clojurewerkz.quartzite.jobs :refer [defjob]]
-            [clojurewerkz.quartzite.schedule.daily-interval :refer [schedule monday-through-friday starting-daily-at time-of-day ending-daily-at with-interval-in-minutes with-interval-in-seconds]]))
+            [beicon.core :as rx]
+            [java-time :as time]))
 
 (def token (System/getenv "TELEGRAM_TOKEN"))
 
@@ -66,30 +63,37 @@
 
 ;(restart-bot)
 
-(defjob send-current-stock-price-to-bot
-        [ctx]
-        (doseq [[stock-code chat-ids] @data]
-          (doseq [chat-id chat-ids]
-            (api/send-text token chat-id {:parse_mode "html"}
-                           (str "주식종목코드 <b>" stock-code "</b>\n"
-                                "현재가: <i>" (:tradePrice (get-stock-info stock-code)) "</i>")))
-          (prn stock-code chat-ids))
-        (println "`send-current-stock-price-to-bot` working..")
-        )
+(def bot-working-time {:start-time-as-second (time/as (time/local-time 9 00) :second-of-day)
+                       :end-time-as-second   (time/as (time/local-time 16 00) :second-of-day)
+                       :interval-as-second   10})
+
+(def disposable
+  (rx/subscribe (->> (rx/interval 1000)
+                     (rx/map (fn [_] (time/local-date-time)))
+                     (rx/map #(do (println %)
+                                  %))
+                     (rx/filter #(time/weekday? %))
+                     (rx/filter #(and (>= (time/as % :second-of-day)
+                                          (:start-time-as-second bot-working-time))
+                                      (<= (time/as % :second-of-day)
+                                          (:end-time-as-second bot-working-time))))
+                     (rx/filter #(= 0
+                                    (mod (time/as % :second-of-minute)
+                                         (:interval-as-second bot-working-time)))))
+                (fn [v]
+                  (doseq [[stock-code chat-ids] @data]
+                    (doseq [chat-id chat-ids]
+                      (api/send-text token chat-id {:parse_mode "html"}
+                                     (str "주식종목코드 <b>" stock-code "</b>\n"
+                                          "현재가: <i>" (:tradePrice (get-stock-info stock-code)) "</i>")))
+                    (prn stock-code chat-ids))
+                  (println "on-value:" v))
+                #(println "on-error:" %)
+                #(println "on-end")))
+
+(.dispose disposable)
 
 (defn -main [& m]
   (start-bot)
-  (let [s (-> (qs/initialize) qs/start)
-        job (j/build
-              (j/of-type send-current-stock-price-to-bot)
-              (j/with-identity (j/key "jobs.noop.1")))
-        trigger (t/build
-                  (t/with-identity (t/key "triggers.1"))
-                  (t/start-now)
-                  (t/with-schedule (schedule
-                                     (with-interval-in-seconds 5)
-                                     (monday-through-friday)
-                                     (starting-daily-at (time-of-day 9 00 00))
-                                     (ending-daily-at (time-of-day 16 00 00)))))]
-    (qs/schedule s job trigger)))
+  (while true (Thread/sleep 10000)))
 
