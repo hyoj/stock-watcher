@@ -1,12 +1,11 @@
 (ns stock-watcher.core
   (:gen-class)
-  (:require [stock-watcher.quotes :refer [get-stock-info]]
+  (:require [stock-watcher.quotes :refer :all]
             [morse.handlers :as h]
             [morse.api :as api]
             [morse.polling :as p]
             [beicon.core :as rx]
-            [java-time :as time]
-            [clojure.pprint :as pprint]))
+            [java-time :as time]))
 
 (def token (System/getenv "TELEGRAM_TOKEN"))
 
@@ -64,31 +63,19 @@
 
 ;(restart-bot)
 
-(defn krw-format
-  ([number]
-   (pprint/cl-format nil "~:d" number))
-  ([number leading-sign]
-   (if leading-sign
-     (pprint/cl-format nil "~:@d" number)
-     (krw-format number))))
-
-(def bot-working-time {:start-time-as-second (time/as (time/local-time 9 00) :second-of-day)
-                       :end-time-as-second   (time/as (time/local-time 16 00) :second-of-day)
-                       :interval-as-second   10})
-
-(def disposable
+(def disposable-sender
   (rx/subscribe (->> (rx/interval 1000)
                      (rx/map (fn [_] (time/local-date-time)))
                      (rx/map #(do (println %)
                                   %))
                      (rx/filter #(time/weekday? %))
                      (rx/filter #(and (>= (time/as % :second-of-day)
-                                          (:start-time-as-second bot-working-time))
+                                          (:start-time-as-second working-time))
                                       (<= (time/as % :second-of-day)
-                                          (:end-time-as-second bot-working-time))))
+                                          (:end-time-as-second working-time))))
                      (rx/filter #(= 0
                                     (mod (time/as % :second-of-day)
-                                         (:interval-as-second bot-working-time)))))
+                                         (:interval-as-second working-time)))))
                 (fn [v]
                   (doseq [[stock-code chat-ids] @data]
                     (doseq [chat-id chat-ids]
@@ -106,7 +93,7 @@
                 #(println "on-error:" %)
                 #(println "on-end")))
 
-(.dispose disposable)
+(.dispose disposable-sender)
 
 (defn -main [& m]
   (start-bot)
