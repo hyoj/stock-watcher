@@ -5,7 +5,8 @@
             [morse.api :as api]
             [morse.polling :as p]
             [beicon.core :as rx]
-            [java-time :as time]))
+            [java-time :as time]
+            [clojure.pprint :as pprint]))
 
 (def token (System/getenv "TELEGRAM_TOKEN"))
 
@@ -63,6 +64,14 @@
 
 ;(restart-bot)
 
+(defn krw-format
+  ([number]
+   (pprint/cl-format nil "~:d" number))
+  ([number leading-sign]
+   (if leading-sign
+     (pprint/cl-format nil "~:@d" number)
+     (krw-format number))))
+
 (def bot-working-time {:start-time-as-second (time/as (time/local-time 9 00) :second-of-day)
                        :end-time-as-second   (time/as (time/local-time 16 00) :second-of-day)
                        :interval-as-second   10})
@@ -78,14 +87,20 @@
                                       (<= (time/as % :second-of-day)
                                           (:end-time-as-second bot-working-time))))
                      (rx/filter #(= 0
-                                    (mod (time/as % :second-of-minute)
+                                    (mod (time/as % :second-of-day)
                                          (:interval-as-second bot-working-time)))))
                 (fn [v]
                   (doseq [[stock-code chat-ids] @data]
                     (doseq [chat-id chat-ids]
                       (api/send-text token chat-id {:parse_mode "html"}
-                                     (str "주식종목코드 <b>" stock-code "</b>\n"
-                                          "현재가: <i>" (:tradePrice (get-stock-info stock-code)) "</i>")))
+                                     (let [{:keys [name symbolCode tradePrice change changePrice changeRate]}
+                                           (get-stock-info stock-code)]
+                                       (str "<b>" name "</b> (" (subs symbolCode 1) ")\n"
+                                            "<i>" (krw-format tradePrice) "</i>  "
+                                            (case change "RISE" "▲"
+                                                         "EVEN" "-"
+                                                         "FALL" "▼") (krw-format changePrice) "  "
+                                            (double (/ (Math/round (* 10000 changeRate)) 100)) "%"))))
                     (prn stock-code chat-ids))
                   (println "on-value:" v))
                 #(println "on-error:" %)
