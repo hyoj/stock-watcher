@@ -90,9 +90,9 @@
                                                           "FALL" "▼") (krw-format changePrice) "  "
                                              (double (/ (Math/round (* 10000 changeRate)) 100)) "%"))))
                      (prn subscription)))
-                  (println "on-value:" v))
-                #(println "on-error:" %)
-                #(println "on-end")))
+                  (println "[core] on-value:" v))
+                #(println "[core] on-error:" %)
+                #(println "[core] on-end")))
 
 (.dispose disposable-sender)
 

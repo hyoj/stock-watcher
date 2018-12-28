@@ -38,10 +38,8 @@
                    @all-stocks))))
 
 (def disposable
-  (rx/subscribe (->> (rx/interval 2000)
+  (rx/subscribe (->> (rx/interval 60000)
                      (rx/map (fn [_] (time/local-date-time)))
-                     (rx/map #(do (println %)
-                                  %))
                      (rx/filter #(time/weekday? %))
                      (rx/filter #(and (>= (time/as % :second-of-day)
                                           (:start-time-as-second working-time))
@@ -52,8 +50,8 @@
                                          (:interval-as-second working-time)))))
                 (fn [v]
                   (reset! all-stocks (flatten (map :includedStocks (get-all-stocks-kospi))))
-                  (println "on-value:" v))
-                #(println "on-error:" %)
-                #(println "on-end")))
+                  (println "[quotes] on-value:" v))
+                #(println "[quotes] on-error:" %)
+                #(println "[quotes] on-end")))
 
 (.dispose disposable)
