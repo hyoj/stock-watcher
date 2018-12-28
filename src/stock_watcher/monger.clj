@@ -2,9 +2,14 @@
   (:require [monger.core :as mg]
             [monger.collection :as mc]))
 
-(defonce conn (mg/connect {:host (System/getenv "MONGO_ADDR")}))
-(defonce db (mg/get-db conn "stock-watcher"))
+(declare conn)
+(declare db)
 (defonce coll "subscribers")
+
+(defn connect-to-mongo
+  []
+  (alter-var-root #'conn (fn [_] (mg/connect {:host (System/getenv "MONGO_ADDR")})))
+  (alter-var-root #'db (fn [_] (mg/get-db conn "stock-watcher"))))
 
 (defn register-subscription
   [stock-code chat-id]

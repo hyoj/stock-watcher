@@ -11,5 +11,5 @@
                  [clojure.java-time "0.3.2"]
                  [com.novemberain/monger "3.1.0"]]
   :jvm-opts ["-Dfile.encoding=utf-8"]
-  :main stock-watcher.core
+  :main ^:skip-aot stock-watcher.core
   :profiles {:uberjar {:aot :all}})

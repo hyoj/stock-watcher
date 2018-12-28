@@ -60,12 +60,13 @@
   (println "Current channel: " channel))
 
 ;(restart-bot)
-
-(def disposable-sender
+(declare sender-subscriber)
+(defn get-sender-subscriber []
   (rx/subscribe (->> (rx/interval 1000)
                      (rx/map (fn [_] (time/local-date-time)))
-                     (rx/map #(do (println %)
-                                  %))
+                     ;(rx/map #(do (println %)
+                     ;             %))
+                     (rx/filter #(when (not-empty @all-stocks) %))
                      (rx/filter #(time/weekday? %))
                      (rx/filter #(and (>= (time/as % :second-of-day)
                                           (:start-time-as-second working-time))
@@ -74,7 +75,7 @@
                      (rx/filter #(= 0
                                     (mod (time/as % :second-of-day)
                                          (:interval-as-second working-time))))
-                     (rx/map #(do (println %)
+                     (rx/map #(do (println (str % "[core] "))
                                   %)))
                 (fn [v]
                   (let [all-subscription (fetch-all-subscription)]
@@ -94,9 +95,10 @@
                 #(println "[core] on-error:" %)
                 #(println "[core] on-end")))
 
-(.dispose disposable-sender)
-
 (defn -main [& m]
+  (alter-var-root #'fetcher (fn [_] (get-fetcher)))
+  (connect-to-mongo)
   (start-bot)
+  (alter-var-root #'sender-subscriber (fn [_] (get-sender-subscriber)))
   (while true (Thread/sleep 10000)))
 
