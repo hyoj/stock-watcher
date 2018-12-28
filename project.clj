@@ -8,7 +8,8 @@
                  [morse "0.4.0"]
                  [org.clojure/data.json "0.2.6"]
                  [funcool/beicon "4.1.0"]
-                 [clojure.java-time "0.3.2"]]
+                 [clojure.java-time "0.3.2"]
+                 [com.novemberain/monger "3.1.0"]]
   :jvm-opts ["-Dfile.encoding=utf-8"]
   :main stock-watcher.core
   :profiles {:uberjar {:aot :all}})

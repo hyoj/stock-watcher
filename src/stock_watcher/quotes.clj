@@ -39,6 +39,9 @@
 
 (def disposable
   (rx/subscribe (->> (rx/interval 2000)
+                     (rx/map (fn [_] (time/local-date-time)))
+                     (rx/map #(do (println %)
+                                  %))
                      (rx/filter #(time/weekday? %))
                      (rx/filter #(and (>= (time/as % :second-of-day)
                                           (:start-time-as-second working-time))

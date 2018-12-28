@@ -1,6 +1,7 @@
 (ns stock-watcher.core
   (:gen-class)
   (:require [stock-watcher.quotes :refer :all]
+            [stock-watcher.monger :refer :all]
             [morse.handlers :as h]
             [morse.api :as api]
             [morse.polling :as p]
@@ -12,9 +13,6 @@
 ;; check stock code is valid
 (defn check-stock-code [stock-code]
   (not (nil? (re-seq #"^\d{6}$" stock-code))))
-
-; {"stock-code1" ("telegram-chat-id1" "telegram-chat-id2")}
-(def data (atom {}))
 
 (h/defhandler bot-api
               (h/command "start" {{username :username} :from {id :id :as chat} :chat}
@@ -33,7 +31,7 @@
                          (let [stock-code (first (re-seq #"\d{6}" text))]
                            (if (check-stock-code stock-code)
                              (do
-                               (swap! data update stock-code conj id)
+                               (register-subscription stock-code id)
                                (api/send-text token id
                                               (str "주식종목코드 " stock-code " 알림이 시작되었습니다.\n"
                                                    "매 30분 마다 현재가 알림을 받게됩니다.")))
@@ -75,20 +73,23 @@
                                           (:end-time-as-second working-time))))
                      (rx/filter #(= 0
                                     (mod (time/as % :second-of-day)
-                                         (:interval-as-second working-time)))))
+                                         (:interval-as-second working-time))))
+                     (rx/map #(do (println %)
+                                  %)))
                 (fn [v]
-                  (doseq [[stock-code chat-ids] @data]
-                    (doseq [chat-id chat-ids]
-                      (api/send-text token chat-id {:parse_mode "html"}
-                                     (let [{:keys [name symbolCode tradePrice change changePrice changeRate]}
-                                           (get-stock-info stock-code)]
-                                       (str "<b>" name "</b> (" (subs symbolCode 1) ")\n"
-                                            "<i>" (krw-format tradePrice) "</i>  "
-                                            (case change "RISE" "▲"
-                                                         "EVEN" "-"
-                                                         "FALL" "▼") (krw-format changePrice) "  "
-                                            (double (/ (Math/round (* 10000 changeRate)) 100)) "%"))))
-                    (prn stock-code chat-ids))
+                  (let [all-subscription (fetch-all-subscription)]
+                    (doseq [subscription all-subscription]
+                     (doseq [chat-id (:chatIds subscription)]
+                       (api/send-text token chat-id {:parse_mode "html"}
+                                      (let [{:keys [name symbolCode tradePrice change changePrice changeRate]}
+                                            (get-stock-info (:stockCode subscription))]
+                                        (str "<b>" name "</b> (" (subs symbolCode 1) ")\n"
+                                             "<i>" (krw-format tradePrice) "</i>  "
+                                             (case change "RISE" "▲"
+                                                          "EVEN" "-"
+                                                          "FALL" "▼") (krw-format changePrice) "  "
+                                             (double (/ (Math/round (* 10000 changeRate)) 100)) "%"))))
+                     (prn subscription)))
                   (println "on-value:" v))
                 #(println "on-error:" %)
                 #(println "on-end")))
