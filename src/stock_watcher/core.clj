@@ -59,6 +59,19 @@
   (start-bot)
   (println "Current channel: " channel))
 
+(defn change-format-changeRate [changeRate]
+  (double (/ (Math/round (* 10000 changeRate)) 100)))
+
+(defn make-stock-msg [subscription]
+  (let [{:keys [name symbolCode tradePrice change changePrice changeRate]}
+        (get-stock-info (:stockCode subscription))]
+    (str "<b>" name "</b> (" (subs symbolCode 1) ")\n"
+         "<i>" (krw-format tradePrice) "</i>  "
+         (case change "RISE" "▲"
+                      "EVEN" "-"
+                      "FALL" "▼") (krw-format changePrice) "  "
+         (change-format-changeRate changeRate) "%")))
+
 ;(restart-bot)
 (declare sender-subscriber)
 (defn get-sender-subscriber []
@@ -80,17 +93,10 @@
                 (fn [v]
                   (let [all-subscription (fetch-all-subscription)]
                     (doseq [subscription all-subscription]
-                     (doseq [chat-id (:chatIds subscription)]
-                       (api/send-text token chat-id {:parse_mode "html"}
-                                      (let [{:keys [name symbolCode tradePrice change changePrice changeRate]}
-                                            (get-stock-info (:stockCode subscription))]
-                                        (str "<b>" name "</b> (" (subs symbolCode 1) ")\n"
-                                             "<i>" (krw-format tradePrice) "</i>  "
-                                             (case change "RISE" "▲"
-                                                          "EVEN" "-"
-                                                          "FALL" "▼") (krw-format changePrice) "  "
-                                             (double (/ (Math/round (* 10000 changeRate)) 100)) "%"))))
-                     (prn subscription)))
+                      (doseq [chat-id (:chatIds subscription)]
+                        (api/send-text token chat-id {:parse_mode "html"}
+                                       (make-stock-msg subscription)))
+                      (prn subscription)))
                   (println "[core] on-value:" v))
                 #(println "[core] on-error:" %)
                 #(println "[core] on-end")))
