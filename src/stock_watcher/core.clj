@@ -13,30 +13,46 @@
 (h/defhandler bot-api
               (h/command "start" {{username :username} :from {id :id :as chat} :chat}
                          (println "User" username "joined")
-                         (api/send-text token id {:parse_mode "html"}
-                                        (str "안녕하세요. <b><i>" username "</i></b> 님\n"
-                                             "개발중인 bot 입니다.")))
-
-              (h/command "hello" {{id :id :as chat} :chat}
-                         (println "hello was requested in " chat)
                          (api/send-text token id {:parse_mode "Markdown"}
-                                        "*Hello*, fellows :)"))
+                                        (str "안녕하세요. *" username "* 님\n"
+                                             "KOSPI 현재가 알림 bot 입니다.\n\n"
+                                             "사용방법은 /help 를 참고해주세요.")))
 
-              (h/command "subscribe" {{id :id :as chat} :chat text :text}
+              (h/command "help" {{id :id :as chat} :chat}
+                         (println "help was requested in " chat)
+                         (api/send-text token id {:parse_mode "Markdown"}
+                                        (str "/subs 종목코드 - 현재가 알림 설정하기\n"
+                                             "/unsubs 종목코드 - 현재가 알림 설정 해지하기\n"
+                                             "종목코드 - 현재가 확인하기")))
+
+              (h/command "subs" {{id :id :as chat} :chat text :text}
                          (println "subscribe was requested in " chat text)
                          (let [stock-code (first (re-seq #"\d{6}" text))]
                            (if (check-stock-code stock-code)
                              (do
                                (register-subscription stock-code id)
-                               (api/send-text token id
-                                              (str "주식종목코드 " stock-code " 알림이 시작되었습니다.\n"
-                                                   "매 30분 마다 현재가 알림을 받게됩니다.")))
-                             (api/send-text token id "유효하지 않은 주식종목코드 입니다."))))
+                               (let [stock-name (:name (get-stock-info stock-code))]
+                                 (api/send-text token id
+                                                (str stock-name "(" stock-code ") 알림이 설정되었습니다.\n"
+                                                     "평일 9시 ~ 16시, 10분 마다 현재가를 알려드립니다.\n"))))
+                             (api/send-text token id "유효하지 않은 종목코드 입니다."))))
+
+              (h/command "unsubs" {{id :id :as chat} :chat text :text}
+                         (println "unsubscribe was requested in " chat text)
+                         (let [stock-code (first (re-seq #"\d{6}" text))]
+                           (if (check-stock-code stock-code)
+                             (do
+                               (cancel-subscription stock-code id)
+                               (let [stock-name (:name (get-stock-info stock-code))]
+                                 (api/send-text token id
+                                                (str stock-name "(" stock-code ") 알림이 해지되었습니다.\n"))))
+                             (api/send-text token id "유효하지 않은 종목코드 입니다."))))
 
               (h/message {{id :id :as chat} :chat text :text :as message}
                          (println "Intercepted message:" message)
                          (when (check-stock-code text)
-                           (api/send-text token id (:tradePrice (get-stock-info text))))))
+                           (api/send-text token id {:parse_mode "html"}
+                                          (str (make-stock-msg text))))))
 
 
 (declare channel)
@@ -70,7 +86,7 @@
                                           (:end-time-as-second working-time))))
                      (rx/filter #(= 0
                                     (mod (time/as % :second-of-day)
-                                         (:interval-as-second working-time))))
+                                         (:send-interval-time-as-second working-time))))
                      (rx/map #(do (println (str % "[core] "))
                                   %)))
                 (fn [v]
@@ -78,7 +94,7 @@
                     (doseq [subscription all-subscription]
                       (doseq [chat-id (:chatIds subscription)]
                         (api/send-text token chat-id {:parse_mode "html"}
-                                       (make-stock-msg subscription)))
+                                       (make-stock-msg (:stockCode subscription))))
                       (prn subscription)))
                   (println "[core] on-value:" v))
                 #(println "[core] on-error:" %)
@@ -90,4 +106,3 @@
   (start-bot)
   (alter-var-root #'sender-subscriber (fn [_] (get-sender-subscriber)))
   (while true (Thread/sleep 10000)))
-

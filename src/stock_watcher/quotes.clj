@@ -11,15 +11,17 @@
 
 (def working-time {:start-time-as-second (time/as (time/local-time 9 00) :second-of-day)
                    :end-time-as-second   (time/as (time/local-time 16 00) :second-of-day)
-                   :interval-as-second   10})
+                   :fetch-interval-time-as-second 30
+                   :send-interval-time-as-second (* 60 10)})
 
 (def all-stocks (atom {}))
 
 ;; check stock code is valid
-(defn check-stock-code [stock-code]
+(defn check-stock-code
+  [stock-code]
   (not (nil? (re-seq #"^\d{6}$" stock-code))))
 
-(defn get-all-stocks-kospi
+(defn get-all-stocks
   []
   (:data (json/read-str (:body (client/get (:url http-req-info)
                                            {:headers (:headers http-req-info)}))
@@ -33,26 +35,28 @@
                                 (str "A" stock-code)))
                    @all-stocks))))
 
-(defn krw-format
+(defn format-krw
   ([number]
    (pprint/cl-format nil "~:d" number))
   ([number leading-sign]
    (if leading-sign
      (pprint/cl-format nil "~:@d" number)
-     (krw-format number))))
+     (format-krw number))))
 
-(defn change-format-changeRate [changeRate]
+(defn format-change-rate
+  [changeRate]
   (clojure.pprint/cl-format nil "~,2f" (* changeRate 100)))
 
-(defn make-stock-msg [subscription]
+(defn make-stock-msg
+  [stock-code]
   (let [{:keys [name symbolCode tradePrice change changePrice changeRate]}
-        (get-stock-info (:stockCode subscription))]
+        (get-stock-info stock-code)]
     (str "<b>" name "</b> (" (subs symbolCode 1) ")\n"
-         "<i>" (krw-format tradePrice) "</i>  "
+         "<i>" (format-krw tradePrice) "</i>  "
          (case change "RISE" "▲"
                       "EVEN" "-"
-                      "FALL" "▼") (krw-format changePrice) "  "
-         (change-format-changeRate changeRate) "%")))
+                      "FALL" "▼") (format-krw changePrice) "  "
+         (format-change-rate changeRate) "%")))
 
 (declare fetcher)
 (defn get-fetcher []
@@ -65,9 +69,9 @@
                                           (:end-time-as-second working-time))))
                      (rx/filter #(= 0
                                     (mod (time/as % :second-of-day)
-                                         60))))
+                                         (:fetch-interval-time-as-second working-time)))))
                 (fn [v]
-                  (reset! all-stocks (flatten (map :includedStocks (get-all-stocks-kospi))))
+                  (reset! all-stocks (flatten (map :includedStocks (get-all-stocks))))
                   (println "[quotes] on-value:" v))
                 #(println "[quotes] on-error:" %)
                 #(println "[quotes] on-end")))
