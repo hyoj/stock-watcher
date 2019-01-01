@@ -60,7 +60,7 @@
   (println "Current channel: " channel))
 
 (defn change-format-changeRate [changeRate]
-  (double (/ (Math/round (* 10000 changeRate)) 100)))
+  (clojure.pprint/cl-format nil "~,2f" (* changeRate 100)))
 
 (defn make-stock-msg [subscription]
   (let [{:keys [name symbolCode tradePrice change changePrice changeRate]}
