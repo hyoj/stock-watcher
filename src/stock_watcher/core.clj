@@ -10,10 +10,6 @@
 
 (def token (System/getenv "TELEGRAM_TOKEN"))
 
-;; check stock code is valid
-(defn check-stock-code [stock-code]
-  (not (nil? (re-seq #"^\d{6}$" stock-code))))
-
 (h/defhandler bot-api
               (h/command "start" {{username :username} :from {id :id :as chat} :chat}
                          (println "User" username "joined")

@@ -15,6 +15,10 @@
 
 (def all-stocks (atom {}))
 
+;; check stock code is valid
+(defn check-stock-code [stock-code]
+  (not (nil? (re-seq #"^\d{6}$" stock-code))))
+
 (defn get-all-stocks-kospi
   []
   (:data (json/read-str (:body (client/get (:url http-req-info)
