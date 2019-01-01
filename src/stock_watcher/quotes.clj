@@ -21,6 +21,14 @@
                                            {:headers (:headers http-req-info)}))
                         :key-fn keyword)))
 
+(defn get-stock-info
+  [stock-code]
+  (first (distinct
+           (filter #(= 0
+                       (compare (:symbolCode %)
+                                (str "A" stock-code)))
+                   @all-stocks))))
+
 (defn krw-format
   ([number]
    (pprint/cl-format nil "~:d" number))
@@ -29,13 +37,18 @@
      (pprint/cl-format nil "~:@d" number)
      (krw-format number))))
 
-(defn get-stock-info
-  [stock-code]
-  (first (distinct
-           (filter #(= 0
-                       (compare (:symbolCode %)
-                                (str "A" stock-code)))
-                   @all-stocks))))
+(defn change-format-changeRate [changeRate]
+  (clojure.pprint/cl-format nil "~,2f" (* changeRate 100)))
+
+(defn make-stock-msg [subscription]
+  (let [{:keys [name symbolCode tradePrice change changePrice changeRate]}
+        (get-stock-info (:stockCode subscription))]
+    (str "<b>" name "</b> (" (subs symbolCode 1) ")\n"
+         "<i>" (krw-format tradePrice) "</i>  "
+         (case change "RISE" "▲"
+                      "EVEN" "-"
+                      "FALL" "▼") (krw-format changePrice) "  "
+         (change-format-changeRate changeRate) "%")))
 
 (declare fetcher)
 (defn get-fetcher []

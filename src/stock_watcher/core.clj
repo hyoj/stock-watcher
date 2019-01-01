@@ -59,19 +59,6 @@
   (start-bot)
   (println "Current channel: " channel))
 
-(defn change-format-changeRate [changeRate]
-  (clojure.pprint/cl-format nil "~,2f" (* changeRate 100)))
-
-(defn make-stock-msg [subscription]
-  (let [{:keys [name symbolCode tradePrice change changePrice changeRate]}
-        (get-stock-info (:stockCode subscription))]
-    (str "<b>" name "</b> (" (subs symbolCode 1) ")\n"
-         "<i>" (krw-format tradePrice) "</i>  "
-         (case change "RISE" "▲"
-                      "EVEN" "-"
-                      "FALL" "▼") (krw-format changePrice) "  "
-         (change-format-changeRate changeRate) "%")))
-
 ;(restart-bot)
 (declare sender-subscriber)
 (defn get-sender-subscriber []
@@ -101,7 +88,7 @@
                 #(println "[core] on-error:" %)
                 #(println "[core] on-end")))
 
-(defn -main [& m]
+(defn -main []
   (alter-var-root #'fetcher (fn [_] (get-fetcher)))
   (connect-to-mongo)
   (start-bot)
