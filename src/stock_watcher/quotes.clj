@@ -58,8 +58,13 @@
                       "FALL" "▼") (format-krw changePrice) "  "
          (format-change-rate changeRate) "%")))
 
+(defn reset-all-stocks
+  []
+  (reset! all-stocks (flatten (map :includedStocks (get-all-stocks)))))
+
 (declare fetcher)
 (defn get-fetcher []
+  (reset-all-stocks)
   (rx/subscribe (->> (rx/interval 1000)
                      (rx/map (fn [_] (time/local-date-time)))
                      (rx/filter #(time/weekday? %))
@@ -71,7 +76,7 @@
                                     (mod (time/as % :second-of-day)
                                          (:fetch-interval-time-as-second working-time)))))
                 (fn [v]
-                  (reset! all-stocks (flatten (map :includedStocks (get-all-stocks))))
+                  (reset-all-stocks)
                   (println "[quotes] on-value:" v))
                 #(println "[quotes] on-error:" %)
                 #(println "[quotes] on-end")))
