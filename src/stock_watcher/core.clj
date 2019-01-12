@@ -10,6 +10,9 @@
 
 (def token (System/getenv "TELEGRAM_TOKEN"))
 
+; TODO 메세지 뭉쳐서 보내기
+; TODO ret overload 기능 or 하나만 있을 때는 종목코드 / 두개 있을 때는 종목코드 알림 분단위 설정
+
 (h/defhandler bot-api
               (h/command "start" {{username :username} :from {id :id :as chat} :chat}
                          (println "User" username "joined")
@@ -21,11 +24,11 @@
               (h/command "help" {{id :id :as chat} :chat}
                          (println "help was requested in " chat)
                          (api/send-text token id {:parse_mode "Markdown"}
-                                        (str "/subs 종목코드 - 현재가 알림 설정하기\n"
-                                             "/unsubs 종목코드 - 현재가 알림 설정 해지하기\n"
+                                        (str "/s 종목코드 - 현재가 알림 설정하기\n"
+                                             "/u 종목코드 - 현재가 알림 설정 해지하기\n"
                                              "종목코드 - 현재가 확인하기")))
 
-              (h/command "subs" {{id :id :as chat} :chat text :text}
+              (h/command "s" {{id :id :as chat} :chat text :text}
                          (println "subscribe was requested in " chat text)
                          (let [stock-code (first (re-seq #"\d{6}" text))]
                            (if (check-stock-code stock-code)
@@ -37,7 +40,7 @@
                                                      "평일 9시 ~ 16시, 10분 마다 현재가를 알려드립니다.\n"))))
                              (api/send-text token id "유효하지 않은 종목코드 입니다."))))
 
-              (h/command "unsubs" {{id :id :as chat} :chat text :text}
+              (h/command "u" {{id :id :as chat} :chat text :text}
                          (println "unsubscribe was requested in " chat text)
                          (let [stock-code (first (re-seq #"\d{6}" text))]
                            (if (check-stock-code stock-code)
